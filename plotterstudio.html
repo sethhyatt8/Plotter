@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plotter Studio</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Instrument+Serif:ital@0;1&display=swap');
+
+:root {
+  --bg: #0e0e0f;
+  --surface: #161618;
+  --surface2: #1e1e21;
+  --border: #2a2a2e;
+  --border2: #3a3a3f;
+  --text: #e8e6e0;
+  --text2: #888880;
+  --text3: #555550;
+  --accent: #e8d5a3;
+  --accent2: #c4a96b;
+  --red: #d4614a;
+  --blue: #5b8fd4;
+  --green: #5ba87a;
+  --purple: #8b6fd4;
+  --mono: 'DM Mono', monospace;
+  --serif: 'Instrument Serif', serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 13px; overflow: hidden; }
+
+/* Layout */
+#app { display: grid; grid-template-columns: 300px 1fr; grid-template-rows: 48px 1fr; height: 100vh; }
+#header { grid-column: 1/-1; display: flex; align-items: center; padding: 0 20px; border-bottom: 1px solid var(--border); gap: 24px; background: var(--surface); }
+#header h1 { font-family: var(--serif); font-size: 22px; font-weight: 400; font-style: italic; color: var(--accent); letter-spacing: 0.02em; }
+#header .subtitle { font-size: 11px; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase; }
+#header .spacer { flex: 1; }
+.header-btn { padding: 6px 14px; font-size: 11px; font-family: var(--mono); border: 1px solid var(--border2); border-radius: 3px; background: transparent; color: var(--text2); cursor: pointer; letter-spacing: 0.05em; transition: all .15s; }
+.header-btn:hover { border-color: var(--accent2); color: var(--accent); }
+.header-btn.primary { background: var(--accent2); border-color: var(--accent2); color: var(--bg); }
+.header-btn.primary:hover { background: var(--accent); }
+
+/* Sidebar */
+#sidebar { background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; display: flex; flex-direction: column; }
+#sidebar::-webkit-scrollbar { width: 4px; }
+#sidebar::-webkit-scrollbar-track { background: transparent; }
+#sidebar::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+.engine-tabs { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--border); }
+.etab { padding: 10px 8px; font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; text-align: center; cursor: pointer; color: var(--text3); border-right: 1px solid var(--border); transition: all .15s; border-bottom: 2px solid transparent; }
+.etab:last-child { border-right: none; }
+.etab.on { color: var(--accent); border-bottom-color: var(--accent2); background: rgba(232,213,163,0.04); }
+.etab:hover:not(.on) { color: var(--text2); background: var(--surface2); }
+
+.panel { display: none; padding: 16px; flex-direction: column; gap: 12px; }
+.panel.on { display: flex; }
+
+.section-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); margin-bottom: 2px; margin-top: 4px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+
+.ctrl { display: flex; flex-direction: column; gap: 4px; }
+.ctrl-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ctrl label { font-size: 11px; color: var(--text2); display: flex; justify-content: space-between; align-items: center; }
+.ctrl label span { color: var(--accent); font-size: 11px; min-width: 36px; text-align: right; }
+.ctrl input[type=range] { -webkit-appearance: none; width: 100%; height: 3px; background: var(--border2); border-radius: 2px; outline: none; cursor: pointer; }
+.ctrl input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%; background: var(--accent2); cursor: pointer; }
+.ctrl input[type=range]:hover::-webkit-slider-thumb { background: var(--accent); }
+.ctrl select { width: 100%; padding: 6px 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; color: var(--text); font-family: var(--mono); font-size: 11px; cursor: pointer; outline: none; }
+.ctrl select:focus { border-color: var(--border2); }
+
+.color-swatches { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.swatch { width: 22px; height: 22px; border-radius: 3px; cursor: pointer; border: 2px solid transparent; transition: border-color .1s; }
+.swatch.on { border-color: var(--accent); }
+
+.action-row { display: flex; gap: 8px; flex-wrap: wrap; padding: 12px 16px; border-top: 1px solid var(--border); }
+.sidebar-btn { flex: 1; padding: 8px 10px; font-family: var(--mono); font-size: 11px; border: 1px solid var(--border2); border-radius: 3px; background: transparent; color: var(--text2); cursor: pointer; letter-spacing: 0.04em; transition: all .15s; text-align: center; }
+.sidebar-btn:hover { border-color: var(--accent2); color: var(--accent); }
+.sidebar-btn.go { background: var(--accent2); border-color: var(--accent2); color: var(--bg); font-weight: 500; }
+.sidebar-btn.go:hover { background: var(--accent); }
+
+/* Canvas area */
+#canvas-area { display: flex; flex-direction: column; background: var(--bg); position: relative; overflow: hidden; }
+#canvas-wrap { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+canvas#main { border: 1px solid var(--border); cursor: crosshair; display: block; }
+#canvas-overlay { position: absolute; top: 12px; right: 12px; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+.overlay-badge { font-size: 10px; letter-spacing: 0.06em; color: var(--text3); background: rgba(14,14,15,0.85); padding: 3px 8px; border-radius: 2px; border: 1px solid var(--border); }
+#statusbar { display: flex; align-items: center; gap: 16px; padding: 0 16px; height: 32px; border-top: 1px solid var(--border); background: var(--surface); font-size: 10px; color: var(--text3); letter-spacing: 0.05em; }
+#statusbar span { color: var(--text2); }
+
+/* Pen config */
+.pen-list { display: flex; flex-direction: column; gap: 8px; }
+.pen-item { display: grid; grid-template-columns: 20px 1fr 60px 28px; gap: 6px; align-items: center; padding: 7px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; }
+.pen-num { font-size: 10px; color: var(--text3); }
+.pen-name { font-size: 11px; color: var(--text2); }
+.pen-color-dot { width: 14px; height: 14px; border-radius: 50%; justify-self: center; }
+.pen-del { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 14px; padding: 0; line-height: 1; }
+.pen-del:hover { color: var(--red); }
+
+/* upload zone */
+.upload-zone { border: 1px dashed var(--border2); border-radius: 4px; padding: 20px; text-align: center; color: var(--text3); font-size: 11px; cursor: pointer; transition: all .15s; }
+.upload-zone:hover, .upload-zone.drag { border-color: var(--accent2); color: var(--text2); background: rgba(232,213,163,0.03); }
+
+/* modal */
+#modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 100; }
+#modal-overlay.on { display: flex; }
+#modal { background: var(--surface); border: 1px solid var(--border2); border-radius: 6px; padding: 24px; width: 460px; max-height: 80vh; overflow-y: auto; }
+#modal h2 { font-family: var(--serif); font-size: 20px; font-weight: 400; font-style: italic; color: var(--accent); margin-bottom: 16px; }
+#modal pre { font-family: var(--mono); font-size: 10px; color: var(--text2); background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 12px; max-height: 260px; overflow-y: auto; line-height: 1.6; white-space: pre-wrap; word-break: break-all; }
+#modal .modal-footer { display: flex; gap: 8px; margin-top: 16px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="header">
+    <h1>Plotter Studio</h1>
+    <span class="subtitle">generative pen plot design</span>
+    <div class="spacer"></div>
+    <button class="header-btn" onclick="showGcode()">Preview GCode</button>
+    <button class="header-btn primary" onclick="exportAll()">Export GCode</button>
+  </header>
+
+  <aside id="sidebar">
+    <div class="engine-tabs">
+      <div class="etab on" onclick="setEngine('flow',this)">Flow Field</div>
+      <div class="etab" onclick="setEngine('spiro',this)">Spirograph</div>
+      <div class="etab" onclick="setEngine('hatch',this)">Hatch/Dots</div>
+      <div class="etab" onclick="setEngine('wave',this)">Wave Interference</div>
+    </div>
+
+    <!-- FLOW FIELD -->
+    <div id="panel-flow" class="panel on">
+      <div class="section-label">Noise Field</div>
+      <div class="ctrl-row">
+        <div class="ctrl"><label>Scale <span id="ff-sc-v">0.003</span></label><input type="range" id="ff-sc" min="1" max="25" value="3" step="1" oninput="sv('ff-sc-v',(+this.value/1000).toFixed(3));live()"></div>
+        <div class="ctrl"><label>Angle mult <span id="ff-am-v">1.0</span></label><input type="range" id="ff-am" min="5" max="40" value="10" step="1" oninput="sv('ff-am-v',(this.value/10).toFixed(1));live()"></div>
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl"><label>Octaves <span id="ff-oc-v">1</span></label><input type="range" id="ff-oc" min="1" max="4" value="1" step="1" oninput="sv('ff-oc-v',this.value);live()"></div>
+        <div class="ctrl"><label>Warp <span id="ff-wa-v">0</span></label><input type="range" id="ff-wa" min="0" max="80" value="0" step="1" oninput="sv('ff-wa-v',this.value);live()"></div>
+      </div>
+      <div class="section-label">Particles</div>
+      <div class="ctrl-row">
+        <div class="ctrl"><label>Count <span id="ff-pt-v">1200</span></label><input type="range" id="ff-pt" min="100" max="4000" value="1200" step="100" oninput="sv('ff-pt-v',this.value);live()"></div>
+        <div class="ctrl"><label>Step <span id="ff-st-v">3</span></label><input type="range" id="ff-st" min="1" max="12" value="3" step="0.5" oninput="sv('ff-st-v',(+this.value).toFixed(1));live()"></div>
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl"><label>Length <span id="ff-le-v">150</span></label><input type="range" id="ff-le" min="10" max="500" value="150" step="10" oninput="sv('ff-le-v',this.value);live()"></div>
+        <div class="ctrl"><label>Opacity <span id="ff-op-v">20</span>%</label><input type="range" id="ff-op" min="3" max="100" value="20" step="1" oninput="sv('ff-op-v',this.value);live()"></div>
+      </div>
+      <div class="section-label">Color Layers</div>
+      <div class="ctrl-row">
+        <div class="ctrl"><label>Pen layers <span id="ff-ly-v">1</span></label><input type="range" id="ff-ly" min="1" max="4" value="1" step="1" oninput="sv('ff-ly-v',this.value);live()"></div>
+        <div class="ctrl"><label>Z offset <span id="ff-zo-v">0.4</span></label><input type="range" id="ff-zo" min="0" max="20" value="4" step="1" oninput="sv('ff-zo-v',(this.value/10).toFixed(1));live()"></div>
+      </div>
+      <div class="ctrl">
+        <label>Curve mode</label>
+        <select id="ff-cm" onchange="live()">
+          <option value="line">Straight segments</option>
+          <option value="curve">Smooth curves</option>
+          <option value="dash">Dashes</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- SPIROGRAPH -->
+    <div id="panel-spiro" class="panel">
+      <div class="section-label">Geometry</div>
+      <div class="ctrl-row">
+        <div class="ctrl"><label>R outer <span id="sp-R-v">120</span></label><input type="range" id="sp-R" min="30" max="220" value="120" step="1" oninput="sv('sp-R-v',this.value);live()"></div>
+        <div class="ctrl"><label>r inner <span id="sp-r-v">47</span></label><input type="range" id="sp-r" min="2" max="180" value="47" step="1" oninput="sv('sp-r-v',this.value);live()"></div>
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl"><label>d pen <span id="sp-d-v">80</span></label><input type="range" id="sp-d" min="0" max="200" value="80" step="1" oninput="sv('sp-d-v',this.value);live()"></div>
+        <div class="ctrl"><label>Rotations <span id="sp-ro-v">18</span></label><input type="range" id="sp-ro" min="1" max="80" value="18" step="1" oninput="sv('sp-ro-v',this.value);live()"></div>
+      </div>
+      <div class="section-label">Asymmetry</div>
+      <div class="ctrl">
+        <label>Mode</label>
+        <select id="sp-mode" onchange="live()">
+          <option value="classic">Classic centered</option>
+          <option value="drift">Drifting center</option>
+          <option value="spiral">Spiral outward</option>
+          <option value="warp">Noise warp</option>
+          <option value="multi">Multi-origin</option>
+          <option value="phase">Phase layers</option>
+          <option value="epicycle">Nested epicycles</option>
+        </select>
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl"><label>Drift X <span id="sp-dx-v">0.5</span></label><input type="range" id="sp-dx" min="0" max="30" value="5" step="1" oninput="sv('sp-dx-v',(this.value/10).toFixed(1));live()"></div>
+        <div class="ctrl"><label>Drift Y <span id="sp-dy-v">0.2</span></label><input type="range" id="sp-dy" min="0" max="30" value="2" step="1" oninput="sv('sp-dy-v',(this.value/10).toFixed(1));live()"></div>
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl"><label>Warp amt <span id="sp-wa-v">15</span></label><input type="range" id="sp-wa" min="0" max="80" value="15" step="1" oninput="sv('sp-wa-v',this.value);live()"></div>
+        <div class="ctrl"><label>Origins <span id="sp-or-v">3</span></label><input type="range" id="sp-or" min="1" max="8" value="3" step="1" oninput="sv('sp-or-v',this.value);live()"></div>
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl"><label>Phases <span id="sp-ph-v">4</span></label><input type="range" id="sp-ph" min="1" max="16" value="4" step="1" oninput="sv('sp-ph-v',this.value);live()"></div>
+        <div class="ctrl"><label>Phase step <span id="sp-ps-v">0.20</span></label><input type="range" id="sp-ps" min="1" max="80" value="20" step="1" oninput="sv('sp-ps-v',(this.value/100).toFixed(2));live()"></div>
+      </div>
+    </div>
+
+    <!-- HATCH/DOTS -->
+    <div id="panel-hatch" class="panel">
+      <div class="section-label">Source Image</div>
+      <div class="upload-zone" id="upload-zone" onclick="document.getElementById('img-input').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="dropImage(event)">
+        <input type="file" id="img-input" accept="image/*" style="display:none" onchange="loadImage(this)">
+        <div id="upload-text">Drop image here or click to browse</div>
+      </div>
+      <div class="section-label">Style</div>
+      <div class="ctrl">
+        <label>Mode</label>
+        <select id="ht-mode" onchange="live()">
+          <option value="hatch">Line hatch</option>
+          <option value="cross">Cross-hatch</option>
+          <option value="dots">Stipple dots</option>
+          <option value="contour">Contour lines</option>
+          <option value="voronoi">Voronoi stipple</option>
+        </select>
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl"><label>Layers <span id="ht-ly-v">3</span></label><input type="range" id="ht-ly" min="1" max="6" value="3" step="1" oninput="sv('ht-ly-v',this.value);live()"></div>
+        <div class="ctrl"><label>Density <span id="ht-de-v">8</span></label><input type="range" id="ht-de" min="2" max="30" value="8" step="1" oninput="sv('ht-de-v',this.value);live()"></div>
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl"><label>Angle spread <span id="ht-an-v">45</span>°</label><input type="range" id="ht-an" min="10" max="90" value="45" step="5" oninput="sv('ht-an-v',this.value);live()"></div>
+        <div class="ctrl"><label>Threshold <span id="ht-th-v">0.5</span></label><input type="range" id="ht-th" min="0" max="100" value="50" step="1" oninput="sv('ht-th-v',(this.value/100).toFixed(2));live()"></div>
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl"><label>Dot size <span id="ht-ds-v">2.0</span></label><input type="range" id="ht-ds" min="5" max="60" value="20" step="5" oninput="sv('ht-ds-v',(this.value/10).toFixed(1));live()"></div>
+        <div class="ctrl"><label>Invert <input type="checkbox" id="ht-inv" onchange="live()" style="margin-left:4px"></label></div>
+      </div>
+    </div>
+
+    <!-- WAVE INTERFERENCE -->
+    <div id="panel-wave" class="panel">
+      <div class="section-label">Sources</div>
+      <div class="ctrl-row">
+        <div class="ctrl"><label>Sources <span id="wv-ns-v">2</span></label><input type="range" id="wv-ns" min="1" max="6" value="2" step="1" oninput="sv('wv-ns-v',this.value);live()"></div>
+        <div class="ctrl"><label>Spread <span id="wv-sp-v">120</span></label><input type="range" id="wv-sp" min="20" max="280" value="120" step="10" oninput="sv('wv-sp-v',this.value);live()"></div>
+      </div>
+      <div class="section-label">Wave Shape</div>
+      <div class="ctrl">
+        <label>Type</label>
+        <select id="wv-type" onchange="live()">
+          <option value="concentric">Concentric rings</option>
+          <option value="radial">Radial lines</option>
+          <option value="moire">Moiré overlay</option>
+          <option value="standing">Standing waves</option>
+        </select>
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl"><label>Frequency <span id="wv-fr-v">12</span></label><input type="range" id="wv-fr" min="3" max="40" value="12" step="1" oninput="sv('wv-fr-v',this.value);live()"></div>
+        <div class="ctrl"><label>Amplitude <span id="wv-am-v">8</span></label><input type="range" id="wv-am" min="0" max="30" value="8" step="1" oninput="sv('wv-am-v',this.value);live()"></div>
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl"><label>Phase shift <span id="wv-ps-v">0.00</span></label><input type="range" id="wv-ps" min="0" max="628" value="0" step="4" oninput="sv('wv-ps-v',(this.value/100).toFixed(2));live()"></div>
+        <div class="ctrl"><label>Blend opacity <span id="wv-op-v">70</span>%</label><input type="range" id="wv-op" min="10" max="100" value="70" step="5" oninput="sv('wv-op-v',this.value);live()"></div>
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl"><label>Line spacing <span id="wv-ls-v">12</span></label><input type="range" id="wv-ls" min="4" max="40" value="12" step="1" oninput="sv('wv-ls-v',this.value);live()"></div>
+        <div class="ctrl"><label>Noise warp <span id="wv-nw-v">0</span></label><input type="range" id="wv-nw" min="0" max="40" value="0" step="1" oninput="sv('wv-nw-v',this.value);live()"></div>
+      </div>
+    </div>
+
+    <!-- PEN CONFIG (shared) -->
+    <div style="padding:12px 16px; border-top: 1px solid var(--border); margin-top: auto;">
+      <div class="section-label" style="margin-top:0">Pen Setup</div>
+      <div class="pen-list" id="pen-list"></div>
+      <div style="margin-top:8px;display:flex;gap:6px">
+        <button class="sidebar-btn" onclick="addPen()">+ Add Pen</button>
+        <button class="sidebar-btn go" onclick="regen()">Regenerate</button>
+      </div>
+      <div style="margin-top:10px">
+        <div class="section-label">Canvas Size</div>
+        <div class="ctrl-row">
+          <div class="ctrl"><label>Width <span id="cv-w-v">210</span>mm</label><input type="range" id="cv-w" min="100" max="420" value="210" step="10" oninput="sv('cv-w-v',this.value);resizeCanvas()"></div>
+          <div class="ctrl"><label>Height <span id="cv-h-v">297</span>mm</label><input type="range" id="cv-h" min="100" max="420" value="297" step="10" oninput="sv('cv-h-v',this.value);resizeCanvas()"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="action-row">
+      <button class="sidebar-btn" onclick="randomize()">Randomize</button>
+      <button class="sidebar-btn" onclick="clearCanvas()">Clear</button>
+    </div>
+  </aside>
+
+  <main id="canvas-area">
+    <div id="canvas-wrap">
+      <canvas id="main"></canvas>
+      <div id="canvas-overlay">
+        <div class="overlay-badge" id="badge-engine">FLOW FIELD</div>
+        <div class="overlay-badge" id="badge-lines">— paths</div>
+        <div class="overlay-badge" id="badge-seed">seed —</div>
+      </div>
+    </div>
+    <div id="statusbar">
+      <span id="st-engine">engine: flow_field</span>
+      &nbsp;·&nbsp;
+      <span id="st-size">210 × 297 mm</span>
+      &nbsp;·&nbsp;
+      <span id="st-pens">1 pen</span>
+      &nbsp;·&nbsp;
+      <span id="st-paths">computing...</span>
+      &nbsp;·&nbsp;
+      <span style="color:var(--text3)">drag to pan · scroll to zoom · R to randomize</span>
+    </div>
+  </main>
+</div>
+
+<!-- GCode Modal -->
+<div id="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div id="modal">
+    <h2 id="modal-title">GCode Preview</h2>
+    <div id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="header-btn primary" id="modal-dl-btn" onclick="downloadCurrentGcode()">Download .gcode</button>
+      <button class="header-btn" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let engine = 'flow';
+let seed = Math.random()*99999|0;
+let allPaths = []; // [{pts:[[x,y]...], penIdx:0}]
+let uploadedImage = null;
+let uploadedImageData = null;
+let currentGcode = '';
+
+// Pen config
+let pens = [
+  { color: '#1a1a1a', name: 'Black 0.3' },
+  { color: '#c0392b', name: 'Red' },
+  { color: '#2471a3', name: 'Blue' },
+  { color: '#1e8449', name: 'Green' },
+];
+
+// Canvas / pan / zoom
+const canvas = document.getElementById('main');
+const ctx = canvas.getContext('2d');
+let canvasW = 600, canvasH = 849; // A4 proportions
+let panX = 0, panY = 0, zoom = 1;
+let isPanning = false, lastMX = 0, lastMY = 0;
+
+// ─── Resize canvas ─────────────────────────────────────────────────────────
+function resizeCanvas() {
+  const mmW = +document.getElementById('cv-w').value;
+  const mmH = +document.getElementById('cv-h').value;
+  const ratio = mmH / mmW;
+  const wrap = document.getElementById('canvas-wrap');
+  const maxW = wrap.clientWidth - 40;
+  const maxH = wrap.clientHeight - 40;
+  let cw = Math.min(maxW, maxH / ratio);
+  let ch = cw * ratio;
+  if (ch > maxH) { ch = maxH; cw = ch / ratio; }
+  canvasW = Math.round(cw);
+  canvasH = Math.round(ch);
+  canvas.width = canvasW;
+  canvas.height = canvasH;
+  document.getElementById('st-size').textContent = `${mmW} × ${mmH} mm`;
+  live();
+}
+
+// ─── Perlin noise ──────────────────────────────────────────────────────────
+function makeNoise(seed) {
+  const perm = new Uint8Array(512);
+  let s = seed|0;
+  const rr = () => { s=(s*1664525+1013904223)&0xffffffff; return (s>>>0)/4294967296; };
+  for(let i=0;i<256;i++) perm[i]=i;
+  for(let i=255;i>0;i--){const j=Math.floor(rr()*(i+1));[perm[i],perm[j]]=[perm[j],perm[i]];}
+  for(let i=0;i<256;i++) perm[i+256]=perm[i];
+  const g=[[1,1],[-1,1],[1,-1],[-1,-1],[1,0],[-1,0],[0,1],[0,-1]];
+  const f=t=>t*t*t*(t*(t*6-15)+10);
+  const l=(a,b,t)=>a+(b-a)*t;
+  return (x,y)=>{
+    const xi=Math.floor(x)&255,yi=Math.floor(y)&255,xf=x-Math.floor(x),yf=y-Math.floor(y);
+    const u=f(xf),v=f(yf);
+    const aa=perm[perm[xi]+yi],ab=perm[perm[xi]+yi+1],ba=perm[perm[xi+1]+yi],bb=perm[perm[xi+1]+yi+1];
+    return l(l(g[aa&7][0]*xf+g[aa&7][1]*yf,g[ba&7][0]*(xf-1)+g[ba&7][1]*yf,u),
+             l(g[ab&7][0]*xf+g[ab&7][1]*(yf-1),g[bb&7][0]*(xf-1)+g[bb&7][1]*(yf-1),u),v);
+  };
+}
+
+function seededRand(s) {
+  let st = s|0;
+  return () => { st=(st*1664525+1013904223)&0xffffffff; return (st>>>0)/4294967296; };
+}
+
+// ─── Engine: Flow Field ────────────────────────────────────────────────────
+function genFlowField() {
+  const sc = +document.getElementById('ff-sc').value / 1000;
+  const am = +document.getElementById('ff-am').value / 10;
+  const oc = +document.getElementById('ff-oc').value;
+  const wa = +document.getElementById('ff-wa').value;
+  const pt = +document.getElementById('ff-pt').value;
+  const st = +document.getElementById('ff-st').value;
+  const le = +document.getElementById('ff-le').value;
+  const ly = +document.getElementById('ff-ly').value;
+  const zo = +document.getElementById('ff-zo').value / 10;
+  const cm = document.getElementById('ff-cm').value;
+  const paths = [];
+  for (let layer = 0; layer < ly; layer++) {
+    const n = makeNoise(seed + layer * 7919);
+    const n2 = makeNoise(seed + layer * 7919 + 444);
+    const rnd = seededRand(seed + layer * 1337);
+    const zOff = layer * zo * 50;
+    const iters = Math.ceil(le / st);
+    for (let i = 0; i < pt; i++) {
+      let x = rnd() * canvasW;
+      let y = rnd() * canvasH;
+      const pts = [[x,y]];
+      for (let j = 0; j < iters; j++) {
+        let nx = x * sc + zOff * 0.01;
+        let ny = y * sc;
+        let angle = n(nx, ny) * Math.PI * 2 * am;
+        // octaves
+        if (oc > 1) angle += n(nx*2, ny*2) * Math.PI * am * 0.5;
+        if (oc > 2) angle += n(nx*4, ny*4) * Math.PI * am * 0.25;
+        if (oc > 3) angle += n(nx*8, ny*8) * Math.PI * am * 0.125;
+        // domain warp
+        if (wa > 0) {
+          const wx = n2(nx+1.7, ny+9.2) * wa;
+          const wy = n2(nx+8.3, ny+2.8) * wa;
+          angle += n(nx + wx*sc*10, ny + wy*sc*10) * 0.3;
+        }
+        if (cm === 'dash' && j % 4 < 2) { x += Math.cos(angle)*st; y += Math.sin(angle)*st; pts.push(null); continue; }
+        x += Math.cos(angle) * st;
+        y += Math.sin(angle) * st;
+        if (x < -10 || x > canvasW+10 || y < -10 || y > canvasH+10) break;
+        pts.push([x, y]);
+      }
+      const valid = pts.filter(Boolean);
+      if (valid.length > 2) paths.push({ pts, penIdx: layer % Math.min(ly, pens.length) });
+    }
+  }
+  return paths;
+}
+
+// ─── Engine: Spirograph ────────────────────────────────────────────────────
+function spiroPoints(R, r, d, rot, ox, oy, modFn) {
+  const steps = Math.max(600, rot * 80);
+  const pts = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = (i / steps) * Math.PI * 2 * rot;
+    let x = (R - r) * Math.cos(t) + d * Math.cos((R - r) / Math.max(1,r) * t);
+    let y = (R - r) * Math.sin(t) - d * Math.sin((R - r) / Math.max(1,r) * t);
+    if (modFn) { const m = modFn(t, x, y, i/steps); x += m[0]; y += m[1]; }
+    pts.push([ox + x, oy + y]);
+  }
+  return pts;
+}
+
+function genSpiro() {
+  const R = +document.getElementById('sp-R').value;
+  const r = +document.getElementById('sp-r').value;
+  const d = +document.getElementById('sp-d').value;
+  const ro = +document.getElementById('sp-ro').value;
+  const mode = document.getElementById('sp-mode').value;
+  const dxv = +document.getElementById('sp-dx').value / 10;
+  const dyv = +document.getElementById('sp-dy').value / 10;
+  const wav = +document.getElementById('sp-wa').value;
+  const orv = +document.getElementById('sp-or').value;
+  const phv = +document.getElementById('sp-ph').value;
+  const psv = +document.getElementById('sp-ps').value / 100;
+  const cx = canvasW/2, cy = canvasH/2;
+  const paths = [];
+  const noise = makeNoise(seed);
+
+  if (mode === 'classic') {
+    paths.push({ pts: spiroPoints(R,r,d,ro,cx,cy,null), penIdx:0 });
+  } else if (mode === 'drift') {
+    const steps = Math.max(800, ro*80);
+    const pts = [];
+    for (let i=0;i<=steps;i++) {
+      const t=(i/steps)*Math.PI*2*ro;
+      pts.push([cx+(R-r)*Math.cos(t)+d*Math.cos((R-r)/Math.max(1,r)*t)+dxv*t,
+                cy+(R-r)*Math.sin(t)-d*Math.sin((R-r)/Math.max(1,r)*t)+dyv*t]);
+    }
+    paths.push({pts,penIdx:0});
+  } else if (mode === 'spiral') {
+    const steps = Math.max(800, ro*80);
+    const pts = [];
+    for (let i=0;i<=steps;i++) {
+      const t=(i/steps)*Math.PI*2*ro;
+      const grow=1+0.003*t;
+      pts.push([cx+(R-r)*Math.cos(t)*grow+d*Math.cos((R-r)/Math.max(1,r)*t)*grow,
+                cy+(R-r)*Math.sin(t)*grow-d*Math.sin((R-r)/Math.max(1,r)*t)*grow]);
+    }
+    paths.push({pts,penIdx:0});
+  } else if (mode === 'warp') {
+    const n2 = makeNoise(seed+999);
+    const wsc = 0.012;
+    const mod = (t,x,y) => {
+      const w = noise(x*wsc,y*wsc)*wav;
+      const ang = n2(x*wsc+5,y*wsc+5)*Math.PI*2;
+      return [Math.cos(ang)*w, Math.sin(ang)*w];
+    };
+    paths.push({ pts: spiroPoints(R,r,d,ro,cx,cy,mod), penIdx:0 });
+  } else if (mode === 'multi') {
+    const spread = Math.min(canvasW, canvasH) * 0.25;
+    for (let oi=0;oi<orv;oi++) {
+      const ang=(oi/orv)*Math.PI*2;
+      const ox=cx+Math.cos(ang)*spread, oy=cy+Math.sin(ang)*spread;
+      const Rv = R * (1 + (oi%2===0?0.1:-0.08));
+      paths.push({ pts: spiroPoints(Rv,r,d,ro,ox,oy,null), penIdx: oi % pens.length });
+    }
+  } else if (mode === 'phase') {
+    for (let li=0;li<phv;li++) {
+      const phOff = li*psv;
+      const steps = Math.max(600, ro*60);
+      const pts = [];
+      for (let i=0;i<=steps;i++) {
+        const t=(i/steps)*Math.PI*2*ro+phOff;
+        pts.push([cx+(R-r)*Math.cos(t)+d*Math.cos((R-r)/Math.max(1,r)*t),
+                  cy+(R-r)*Math.sin(t)-d*Math.sin((R-r)/Math.max(1,r)*t)]);
+      }
+      paths.push({ pts, penIdx: li % pens.length });
+    }
+  } else if (mode === 'epicycle') {
+    const R2 = R * 0.45, r2 = r * 0.4, d2 = d * 0.55;
+    const steps = Math.max(1000, ro*100);
+    for (let layer=0;layer<2;layer++) {
+      const pts = [];
+      const phOff = layer * Math.PI;
+      for (let i=0;i<=steps;i++) {
+        const t=(i/steps)*Math.PI*2*ro+phOff;
+        const x1=(R-r)*Math.cos(t)+d*Math.cos((R-r)/Math.max(1,r)*t);
+        const y1=(R-r)*Math.sin(t)-d*Math.sin((R-r)/Math.max(1,r)*t);
+        const t2=t*1.618;
+        const x2=x1+(R2-r2)*Math.cos(t2)+d2*Math.cos((R2-r2)/Math.max(1,r2)*t2);
+        const y2=y1+(R2-r2)*Math.sin(t2)-d2*Math.sin((R2-r2)/Math.max(1,r2)*t2);
+        pts.push([cx+x2,cy+y2]);
+      }
+      paths.push({pts,penIdx:layer%pens.length});
+    }
+  }
+  return paths;
+}
+
+// ─── Engine: Hatch/Dots ───────────────────────────────────────────────────
+function getImageBrightness(x, y) {
+  if (!uploadedImageData) return Math.random();
+  const px = Math.floor((x / canvasW) * uploadedImageData.width);
+  const py = Math.floor((y / canvasH) * uploadedImageData.height);
+  const idx = (py * uploadedImageData.width + px) * 4;
+  const d = uploadedImageData.data;
+  if (!d[idx] && d[idx]===undefined) return 0.5;
+  const inv = document.getElementById('ht-inv').checked;
+  const b = (d[idx]*0.299 + d[idx+1]*0.587 + d[idx+2]*0.114) / 255;
+  return inv ? 1 - b : b;
+}
+
+function genHatch() {
+  const mode = document.getElementById('ht-mode').value;
+  const layers = +document.getElementById('ht-ly').value;
+  const density = +document.getElementById('ht-de').value;
+  const angleSpread = +document.getElementById('ht-an').value * Math.PI / 180;
+  const threshold = +document.getElementById('ht-th').value / 100;
+  const dotSize = +document.getElementById('ht-ds').value / 10;
+  const paths = [];
+  const W = canvasW, H = canvasH;
+  const baseAngle = Math.PI / 4;
+
+  if (mode === 'dots' || mode === 'voronoi') {
+    const spacing = density * 2;
+    for (let layer = 0; layer < layers; layer++) {
+      const rnd = seededRand(seed + layer*1234);
+      const jitter = spacing * 0.4;
+      for (let gy = spacing/2; gy < H; gy += spacing) {
+        for (let gx = spacing/2; gx < W; gx += spacing) {
+          const sx = gx + (rnd()-0.5)*jitter;
+          const sy = gy + (rnd()-0.5)*jitter;
+          const b = getImageBrightness(sx, sy);
+          if (b < threshold) {
+            const r = dotSize * (1 - b * 0.6) * (layer < 2 ? 1 : 0.7);
+            const steps = Math.max(6, Math.ceil(r * 4));
+            const pts = [];
+            for (let a=0;a<=steps;a++) pts.push([sx+Math.cos(a/steps*Math.PI*2)*r, sy+Math.sin(a/steps*Math.PI*2)*r]);
+            paths.push({ pts, penIdx: layer % pens.length, isDot: true });
+          }
+        }
+      }
+    }
+  } else if (mode === 'contour') {
+    const numLevels = layers * 3;
+    for (let li = 0; li < numLevels; li++) {
+      const level = li / numLevels;
+      const step = density * 1.5;
+      for (let y = 0; y < H; y += step) {
+        const pts = [];
+        let inLine = false;
+        for (let x = 0; x < W; x += 3) {
+          const b = getImageBrightness(x, y);
+          const near = Math.abs(b - level) < 0.04;
+          if (near) { if (!inLine) { inLine=true; pts.push([x,y]); } else pts.push([x,y]); }
+          else { if (inLine) { inLine=false; } }
+        }
+        if (pts.length > 3) paths.push({ pts, penIdx: (li % layers) % pens.length });
+      }
+    }
+  } else {
+    // hatch / cross-hatch
+    for (let layer = 0; layer < layers; layer++) {
+      const angle = baseAngle + layer * angleSpread / Math.max(1, layers-1);
+      const spacing = density + layer * 2;
+      const cos = Math.cos(angle), sin = Math.sin(angle);
+      const diag = Math.sqrt(W*W+H*H);
+      for (let d2 = -diag; d2 < diag; d2 += spacing) {
+        const x0 = W/2 + d2*cos - diag*sin;
+        const y0 = H/2 + d2*sin + diag*cos;
+        const x1 = W/2 + d2*cos + diag*sin;
+        const y1 = H/2 + d2*sin - diag*cos;
+        // clip and sample brightness
+        const pts = [];
+        const steps = Math.ceil(diag*2 / 4);
+        for (let s=0;s<=steps;s++) {
+          const t = s/steps;
+          const px = x0+(x1-x0)*t, py = y0+(y1-y0)*t;
+          if (px<0||px>W||py<0||py>H) continue;
+          const b = getImageBrightness(px, py);
+          if (b < threshold) pts.push([px, py]);
+          else if (pts.length > 1) {
+            paths.push({ pts: [...pts], penIdx: layer % pens.length });
+            pts.length = 0;
+          } else { pts.length = 0; }
+        }
+        if (pts.length > 1) paths.push({ pts, penIdx: layer % pens.length });
+      }
+    }
+  }
+  return paths;
+}
+
+// ─── Engine: Wave Interference ────────────────────────────────────────────
+function genWave() {
+  const ns = +document.getElementById('wv-ns').value;
+  const sp = +document.getElementById('wv-sp').value;
+  const type = document.getElementById('wv-type').value;
+  const fr = +document.getElementById('wv-fr').value;
+  const am = +document.getElementById('wv-am').value;
+  const ps = +document.getElementById('wv-ps').value / 100;
+  const ls = +document.getElementById('wv-ls').value;
+  const nw = +document.getElementById('wv-nw').value;
+  const W = canvasW, H = canvasH;
+  const cx = W/2, cy = H/2;
+  const noise = makeNoise(seed);
+  const paths = [];
+
+  // Build source positions
+  const sources = [];
+  for (let i=0;i<ns;i++) {
+    const ang = (i/ns)*Math.PI*2;
+    sources.push([cx+Math.cos(ang)*sp*0.5, cy+Math.sin(ang)*sp*0.5]);
+  }
+
+  if (type === 'concentric') {
+    for (let layer=0;layer<ns;layer++) {
+      const [sx, sy] = sources[layer];
+      const maxR = Math.sqrt(W*W+H*H)*0.7;
+      for (let ri=ls; ri<maxR; ri+=ls) {
+        const steps = Math.max(60, Math.ceil(ri*0.4));
+        const pts = [];
+        for (let si=0;si<=steps;si++) {
+          const a = (si/steps)*Math.PI*2;
+          const warp = nw>0 ? noise(Math.cos(a)*0.05+layer*0.3, Math.sin(a)*0.05+ri*0.01)*nw : 0;
+          const r = ri + Math.sin(ri*fr*0.1+ps)*am + warp;
+          const px = sx + Math.cos(a)*r;
+          const py = sy + Math.sin(a)*r;
+          if(px>-20&&px<W+20&&py>-20&&py<H+20) pts.push([px,py]);
+        }
+        if (pts.length>3) paths.push({pts,penIdx:layer%pens.length});
+      }
+    }
+  } else if (type === 'radial') {
+    const numLines = fr * 4;
+    for (let layer=0;layer<ns;layer++) {
+      const [sx,sy] = sources[layer];
+      for (let li=0;li<numLines;li++) {
+        const baseA = (li/numLines)*Math.PI*2 + ps;
+        const pts = [];
+        for (let ri=0;ri<Math.sqrt(W*W+H*H)*0.8;ri+=3) {
+          const a = baseA + Math.sin(ri*0.02)*am*0.05 + (nw>0?noise(ri*0.01+layer,li*0.1)*nw*0.03:0);
+          const px = sx+Math.cos(a)*ri, py=sy+Math.sin(a)*ri;
+          if(px>0&&px<W&&py>0&&py<H) pts.push([px,py]);
+          else if(pts.length>2){paths.push({pts:[...pts],penIdx:layer%pens.length});pts.length=0;}
+        }
+        if(pts.length>2) paths.push({pts,penIdx:layer%pens.length});
+      }
+    }
+  } else if (type === 'moire' || type === 'standing') {
+    const diag = Math.sqrt(W*W+H*H);
+    for (let layer=0;layer<ns;layer++) {
+      const [sx,sy] = sources[layer];
+      const angle = (layer/ns)*Math.PI;
+      const cos=Math.cos(angle),sin=Math.sin(angle);
+      for (let d2=-diag;d2<diag;d2+=ls) {
+        const pts = [];
+        const steps = Math.ceil(diag/3);
+        for (let si=0;si<=steps;si++) {
+          const t=(si/steps-0.5)*diag*2;
+          const px=sx+d2*cos-t*sin, py=sy+d2*sin+t*cos;
+          if(px<-5||px>W+5||py<-5||py>H+5) continue;
+          const distToSrc = sources.map(([ox,oy])=>Math.sqrt((px-ox)**2+(py-oy)**2));
+          const interference = distToSrc.reduce((acc,dist,i)=>acc+Math.sin(dist*fr*0.15+ps+i*Math.PI/ns),0)/ns;
+          const warp = nw>0?noise(px*0.01,py*0.01)*nw:0;
+          const py2 = py + interference*am + warp;
+          if(px>=0&&px<=W&&py2>=0&&py2<=H) pts.push([px,py2]);
+          else if(pts.length>2){paths.push({pts:[...pts],penIdx:layer%pens.length});pts.length=0;}
+        }
+        if(pts.length>2) paths.push({pts,penIdx:layer%pens.length});
+      }
+    }
+  }
+  return paths;
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────
+function renderPaths() {
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0,0,canvasW,canvasH);
+  const op = engine==='flow' ? (+document.getElementById('ff-op').value/100) : 0.8;
+  const penLayers = {};
+  for (const p of allPaths) {
+    const pi = p.penIdx;
+    if (!penLayers[pi]) penLayers[pi] = [];
+    penLayers[pi].push(p);
+  }
+  // Draw each pen layer
+  for (let pi=0;pi<pens.length;pi++) {
+    const layer = penLayers[pi];
+    if (!layer) continue;
+    const col = pens[pi].color;
+    ctx.strokeStyle = col;
+    ctx.globalAlpha = op;
+    for (const {pts, isDot} of layer) {
+      if (!pts || pts.length < 2) continue;
+      ctx.lineWidth = isDot ? 0.8 : 0.9;
+      ctx.beginPath();
+      let moved = false;
+      for (const pt of pts) {
+        if (!pt) { moved = false; continue; }
+        if (!moved) { ctx.moveTo(pt[0],pt[1]); moved=true; }
+        else ctx.lineTo(pt[0],pt[1]);
+      }
+      ctx.stroke();
+      if (isDot) { ctx.fillStyle = col; ctx.fill(); }
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ─── Generate & Draw ──────────────────────────────────────────────────────
+function live() {
+  seed = Math.random()*99999|0;
+  generate();
+}
+
+function regen() {
+  seed = Math.random()*99999|0;
+  generate();
+}
+
+function generate() {
+  const t0 = performance.now();
+  if (engine==='flow') allPaths = genFlowField();
+  else if (engine==='spiro') allPaths = genSpiro();
+  else if (engine==='hatch') allPaths = genHatch();
+  else if (engine==='wave') allPaths = genWave();
+  const dt = Math.round(performance.now()-t0);
+  renderPaths();
+  const count = allPaths.length;
+  document.getElementById('badge-lines').textContent = count.toLocaleString()+' paths';
+  document.getElementById('badge-seed').textContent = 'seed '+seed;
+  document.getElementById('st-paths').textContent = `${count.toLocaleString()} paths · ${dt}ms`;
+  document.getElementById('st-pens').textContent = `${pens.length} pen${pens.length>1?'s':''}`;
+}
+
+// ─── GCode Export ─────────────────────────────────────────────────────────
+function buildGcode(penIdx) {
+  const mmW = +document.getElementById('cv-w').value;
+  const mmH = +document.getElementById('cv-h').value;
+  const scaleX = mmW / canvasW;
+  const scaleY = mmH / canvasH;
+  const penPaths = allPaths.filter(p=>p.penIdx===penIdx);
+  let gc = `; Plotter Studio — Pen ${penIdx+1}: ${pens[penIdx].name}\n`;
+  gc += `; Canvas: ${mmW}x${mmH}mm\n`;
+  gc += `; Paths: ${penPaths.length}\n`;
+  gc += `G21 ; millimeters\nG90 ; absolute\nG0 Z5.0 ; pen up\nG0 X0 Y0 F6000\n`;
+  // Sort paths by nearest-neighbor (greedy)
+  const sorted = [...penPaths];
+  // simple nearest-neighbor sort
+  for (let i=0;i<sorted.length-1;i++) {
+    const last = sorted[i].pts.filter(Boolean);
+    const ep = last[last.length-1];
+    if (!ep) continue;
+    let bestJ=i+1, bestD=Infinity;
+    for (let j=i+1;j<sorted.length;j++) {
+      const sp=sorted[j].pts.find(Boolean);
+      if (!sp) continue;
+      const d=(sp[0]-ep[0])**2+(sp[1]-ep[1])**2;
+      if(d<bestD){bestD=d;bestJ=j;}
+    }
+    [sorted[i+1],sorted[bestJ]]=[sorted[bestJ],sorted[i+1]];
+  }
+  for (const {pts} of sorted) {
+    const valid = pts.filter(Boolean);
+    if (valid.length < 2) continue;
+    const x0 = (valid[0][0]*scaleX).toFixed(3);
+    const y0 = (valid[0][1]*scaleY).toFixed(3);
+    gc += `G0 X${x0} Y${y0}\nG0 Z0.0\n`;
+    for (let i=1;i<pts.length;i++) {
+      if (!pts[i]) { gc+=`G0 Z5.0\n`; continue; }
+      if (i>1&&!pts[i-1]) gc+=`G0 X${(pts[i][0]*scaleX).toFixed(3)} Y${(pts[i][1]*scaleY).toFixed(3)}\nG0 Z0.0\n`;
+      else gc+=`G1 X${(pts[i][0]*scaleX).toFixed(3)} Y${(pts[i][1]*scaleY).toFixed(3)} F4000\n`;
+    }
+    gc += `G0 Z5.0\n`;
+  }
+  gc += `G0 X0 Y0\n; End pen ${penIdx+1}\n`;
+  return gc;
+}
+
+function exportAll() {
+  const usedPens = [...new Set(allPaths.map(p=>p.penIdx))].sort();
+  if (usedPens.length === 1) {
+    download(`plot_pen1.gcode`, buildGcode(usedPens[0]));
+  } else {
+    for (const pi of usedPens) {
+      setTimeout(()=>download(`plot_pen${pi+1}_${pens[pi].name.replace(/\s/g,'_')}.gcode`, buildGcode(pi)), pi*100);
+    }
+  }
+}
+
+function showGcode() {
+  const usedPens = [...new Set(allPaths.map(p=>p.penIdx))].sort();
+  const pi = usedPens[0] || 0;
+  currentGcode = buildGcode(pi);
+  document.getElementById('modal-title').textContent = `GCode Preview — Pen 1: ${pens[pi].name}`;
+  const lines = currentGcode.split('\n').slice(0,60).join('\n') + (currentGcode.split('\n').length>60?'\n...':'');
+  document.getElementById('modal-body').innerHTML = `<pre>${lines}</pre><p style="font-size:11px;color:var(--text3);margin-top:8px">${currentGcode.split('\n').length} lines total · ${usedPens.length} pen file(s)</p>`;
+  document.getElementById('modal-overlay').classList.add('on');
+}
+
+function downloadCurrentGcode() { download('plot.gcode', currentGcode); }
+function closeModal() { document.getElementById('modal-overlay').classList.remove('on'); }
+
+function download(name, text) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text],{type:'text/plain'}));
+  a.download = name; a.click();
+}
+
+// ─── SVG Export ───────────────────────────────────────────────────────────
+function exportSVG() {
+  const mmW = +document.getElementById('cv-w').value;
+  const mmH = +document.getElementById('cv-h').value;
+  let svg = `<svg width="${mmW}mm" height="${mmH}mm" viewBox="0 0 ${canvasW} ${canvasH}" xmlns="http://www.w3.org/2000/svg">`;
+  svg += `<rect width="${canvasW}" height="${canvasH}" fill="white"/>`;
+  const op = engine==='flow'?(+document.getElementById('ff-op').value/100):0.8;
+  for (let pi=0;pi<pens.length;pi++) {
+    const layer = allPaths.filter(p=>p.penIdx===pi);
+    if(!layer.length) continue;
+    svg += `<g stroke="${pens[pi].color}" stroke-width="0.8" fill="none" opacity="${op.toFixed(2)}">`;
+    for (const {pts} of layer) {
+      let d=''; let moved=false;
+      for (const pt of pts) {
+        if(!pt){moved=false;continue;}
+        if(!moved){d+=`M${pt[0].toFixed(1)} ${pt[1].toFixed(1)}`;moved=true;}
+        else d+=` L${pt[0].toFixed(1)} ${pt[1].toFixed(1)}`;
+      }
+      if(d) svg+=`<path d="${d}"/>`;
+    }
+    svg+=`</g>`;
+  }
+  svg+='</svg>';
+  download('plotter_studio.svg', svg);
+}
+
+// ─── Image loading ─────────────────────────────────────────────────────────
+function loadImage(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      uploadedImage = img;
+      const offscreen = document.createElement('canvas');
+      offscreen.width = 200; offscreen.height = 200;
+      const oc = offscreen.getContext('2d');
+      oc.drawImage(img,0,0,200,200);
+      uploadedImageData = oc.getImageData(0,0,200,200);
+      document.getElementById('upload-text').textContent = `✓ ${file.name}`;
+      live();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function dropImage(event) {
+  event.preventDefault();
+  event.currentTarget.classList.remove('drag');
+  const file = event.dataTransfer.files[0];
+  if (file) { const inp = document.getElementById('img-input'); inp.files = event.dataTransfer.files; loadImage(inp); }
+}
+
+// ─── Pen management ──────────────────────────────────────────────────────
+const PEN_COLORS = ['#1a1a1a','#c0392b','#2471a3','#1e8449','#7d3c98','#d35400','#1a5276','#0e6655'];
+const PEN_NAMES = ['Black','Red','Blue','Green','Purple','Orange','Navy','Teal'];
+
+function renderPenList() {
+  const list = document.getElementById('pen-list');
+  list.innerHTML = '';
+  pens.forEach((pen, i) => {
+    const row = document.createElement('div');
+    row.className = 'pen-item';
+    row.innerHTML = `
+      <span class="pen-num">${i+1}</span>
+      <span class="pen-name">${pen.name}</span>
+      <div class="pen-color-dot" style="background:${pen.color}" onclick="cyclePenColor(${i})"></div>
+      <button class="pen-del" onclick="removePen(${i})">×</button>`;
+    list.appendChild(row);
+  });
+}
+
+function addPen() {
+  if (pens.length >= 6) return;
+  const i = pens.length;
+  pens.push({ color: PEN_COLORS[i % PEN_COLORS.length], name: PEN_NAMES[i % PEN_NAMES.length] });
+  renderPenList();
+  generate();
+}
+
+function removePen(i) {
+  if (pens.length <= 1) return;
+  pens.splice(i,1);
+  renderPenList();
+  generate();
+}
+
+function cyclePenColor(i) {
+  const idx = PEN_COLORS.indexOf(pens[i].color);
+  pens[i].color = PEN_COLORS[(idx+1) % PEN_COLORS.length];
+  pens[i].name = PEN_NAMES[(PEN_COLORS.indexOf(pens[i].color)) % PEN_NAMES.length];
+  renderPenList();
+  generate();
+}
+
+// ─── Engine switching ────────────────────────────────────────────────────
+function setEngine(e, el) {
+  engine = e;
+  document.querySelectorAll('.etab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.getElementById('panel-'+e).classList.add('on');
+  document.getElementById('badge-engine').textContent = e.toUpperCase().replace('-',' ');
+  document.getElementById('st-engine').textContent = 'engine: '+e;
+  generate();
+}
+
+// ─── Randomize ───────────────────────────────────────────────────────────
+function randomize() {
+  if (engine==='flow') {
+    setSlider('ff-sc', 1+Math.random()*20|0);
+    setSlider('ff-am', 5+Math.random()*30|0);
+    setSlider('ff-pt', [300,600,1000,1500,2000][Math.random()*5|0]);
+    setSlider('ff-le', 50+Math.random()*400|0);
+    setSlider('ff-op', 8+Math.random()*50|0);
+    setSlider('ff-ly', 1+Math.random()*3|0);
+    setSlider('ff-wa', Math.random()*60|0);
+  } else if (engine==='spiro') {
+    const R = 40+Math.random()*180|0;
+    setSlider('sp-R', R);
+    setSlider('sp-r', 2+Math.random()*(R*0.8)|0);
+    setSlider('sp-d', Math.random()*180|0);
+    setSlider('sp-ro', 3+Math.random()*60|0);
+    const modes=['classic','drift','spiral','warp','multi','phase','epicycle'];
+    document.getElementById('sp-mode').value=modes[Math.random()*modes.length|0];
+  } else if (engine==='wave') {
+    setSlider('wv-ns', 1+Math.random()*5|0);
+    setSlider('wv-fr', 4+Math.random()*30|0);
+    setSlider('wv-am', Math.random()*25|0);
+    setSlider('wv-ls', 6+Math.random()*28|0);
+    setSlider('wv-sp', 30+Math.random()*230|0);
+    const types=['concentric','radial','moire','standing'];
+    document.getElementById('wv-type').value=types[Math.random()*types.length|0];
+  }
+  regen();
+}
+
+function setSlider(id, val) {
+  const el = document.getElementById(id);
+  const vEl = document.getElementById(id+'-v');
+  el.value = val;
+  if (vEl) {
+    const step = +el.step || 1;
+    if (step < 0.1) vEl.textContent = (+val).toFixed(3);
+    else if (step < 1) vEl.textContent = (+val).toFixed(1);
+    else vEl.textContent = val;
+  }
+}
+
+// ─── Misc helpers ────────────────────────────────────────────────────────
+function sv(id, val) { document.getElementById(id).textContent = val; }
+function clearCanvas() { allPaths=[]; ctx.fillStyle='#fff'; ctx.fillRect(0,0,canvasW,canvasH); document.getElementById('badge-lines').textContent='cleared'; }
+
+// ─── Keyboard shortcuts ──────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
+  if (e.key==='r'||e.key==='R') { randomize(); }
+  if (e.key==='g'||e.key==='G') { exportAll(); }
+  if (e.key==='s'||e.key==='S') { exportSVG(); }
+});
+
+// ─── Pan/Zoom (canvas display transform only) ────────────────────────────
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.1 : 0.9;
+  zoom = Math.max(0.3, Math.min(4, zoom*factor));
+  canvas.style.transform = `translate(${panX}px,${panY}px) scale(${zoom})`;
+}, { passive:false });
+canvas.addEventListener('mousedown', e => { if(e.button===1||e.altKey){isPanning=true;lastMX=e.clientX;lastMY=e.clientY;e.preventDefault();} });
+document.addEventListener('mousemove', e => { if(isPanning){panX+=e.clientX-lastMX;panY+=e.clientY-lastMY;lastMX=e.clientX;lastMY=e.clientY;canvas.style.transform=`translate(${panX}px,${panY}px) scale(${zoom})`;} });
+document.addEventListener('mouseup', ()=>isPanning=false);
+
+// ─── Init ─────────────────────────────────────────────────────────────────
+window.addEventListener('resize', resizeCanvas);
+renderPenList();
+resizeCanvas();
+</script>
+</body>
+</html>
